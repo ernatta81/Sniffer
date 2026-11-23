@@ -1,6 +1,6 @@
 # RS232 Sniffer / Bridge
 
-Sniffer seriale RS232 "in linea" con interfaccia grafica (Tkinter) per Linux/Debian.
+Sniffer seriale RS232 "in linea" con interfaccia grafica (Tkinter) per Linux/Debian/Win11.
 
 ```
 [Apparato A] <--> Seriale 1  [PC con lo sniffer]  Seriale 2 <--> [Apparato B]
@@ -83,18 +83,6 @@ viene letta solo al login. Per verificare:
 groups                 # deve comparire "dialout"
 ls -l /dev/ttyUSB*     # crw-rw---- 1 root dialout ...
 ```
-
-Se la porta continua a dare "Permission denied" o risulta occupata:
-
-- **Non avviare il programma con `sudo`**: basta il gruppo `dialout`.
-- **ModemManager** può aprire le porte `ttyACM`/`ttyUSB` appena collegate
-  pensando che siano modem. Se non usi modem:
-  `sudo systemctl disable --now ModemManager`
-- **brltty** (servizio per display Braille) può "rubare" gli adattatori
-  CH340/CH341: la porta compare e sparisce subito. Se non lo usi:
-  `sudo apt remove brltty`
-- Per vedere chi tiene aperta una porta: `sudo fuser -v /dev/ttyUSB0`
-
 **Nomi stabili.** Con due adattatori USB, `ttyUSB0` e `ttyUSB1` possono
 scambiarsi a ogni riavvio. Usa invece i percorsi fissi in
 `/dev/serial/by-id/` (dipendono dal numero di serie dell'adattatore) e
@@ -141,47 +129,6 @@ Sotto la lista c'è il **dettaglio del pacchetto selezionato**: orari di inizio
 e fine, relazione comando/risposta, testo completo e hex dump classico
 (offset, 16 byte per riga, ASCII).
 
-### Cos'è un pacchetto
-
-Sulla seriale non esistono "messaggi", solo byte. Lo sniffer chiude un
-pacchetto quando la linea resta in **silenzio per più di "Fine pacchetto"
-ms** (default 50). Se un messaggio appare spezzato in più righe, aumenta il
-valore; se due messaggi distinti finiscono nella stessa riga, diminuiscilo.
-Con molti adattatori USB-seriale non conviene scendere sotto i 20 ms circa,
-perché raggruppano i byte ogni ~16 ms.
-
-### Come si capisce qual è la risposta a un comando
-
-Il protocollo non contiene un echo del comando, quindi lo sniffer usa la
-regola che vale per qualsiasi protocollo "domanda/risposta" su linea
-seriale: **una risposta è il primo pacchetto che l'altro lato trasmette dopo
-il comando, entro il "Timeout risposta"** (default 1000 ms).
-
-- Il pacchetto riceve nella colonna **Risposta a** il numero del comando e la
-  latenza, es. `#6 (8 ms)` = risponde al pacchetto 6 dopo 8 ms di silenzio.
-- **Selezionando una riga**, il comando e le risposte collegate si
-  evidenziano in **giallo**.
-- Se lo stesso lato ritrasmette prima che l'altro risponda (es. due `<ENQ>`
-  di fila), la risposta viene collegata all'**ultimo** comando inviato, che è
-  quello a cui l'apparato sta effettivamente rispondendo; il comando
-  precedente resta senza risposta.
-- Se l'altro lato trasmette dopo il timeout, il pacchetto **non** viene
-  considerato una risposta (es. un messaggio spontaneo).
-- Un secondo pacchetto dello stesso lato (es. `<ACK>` seguito da
-  `<STX>DATI<ETX>`) non viene collegato automaticamente: lo si legge dalla
-  colonna Δt, che indica quanto tempo è passato.
-
-Esempio:
-
-```
- N°  Ora           Δt       Direzione            Byte  Risposta a   ASCII
-  5  10:15:40.800  +670 ms  Cassa → Periferica      1               <ENQ>
-  6  10:15:41.300  +500 ms  Cassa → Periferica      1               <ENQ>
-  7  10:15:41.308    +8 ms  Periferica → Cassa      1  #6  (8 ms)   <ACK>
-  8  10:15:42.000  +692 ms  Periferica → Cassa     18               EVENTO SPONTANEO<CR><LF>
-  9  10:15:42.020   +20 ms  Cassa → Periferica      1  #8  (20 ms)  <ACK>
-```
-
 ## Comandi e opzioni
 
 | Comando / opzione         | Effetto                                                          |
@@ -199,9 +146,6 @@ Esempio:
 
 ## Note
 
-- I tempi sono misurati dal PC: la precisione dipende dall'adattatore
-  USB-seriale (tipicamente da 1 a 16 ms), più che sufficiente per distinguere
-  comando e risposta.
 - I dati sono decodificati come **Latin-1** (1 byte = 1 carattere, senza
   perdita).
 - La lista conserva gli ultimi 20000 pacchetti; per catture lunghe usa
